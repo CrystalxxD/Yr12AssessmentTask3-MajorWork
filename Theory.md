@@ -50,11 +50,13 @@ Resources for the project were allocated strategically to ensure efficient and e
 ### **3. System Design**
 #### **Context Diagram/DFD Diagram**
 ##### **Level 0 DFD**
+![alt text](<Images/Lvl 0 DFD.png>)
 
 ##### **Level 1 DFD**
+![alt text](<Images/Lvl 1 DFD.png>)
 
 #### **Structure Chart**
-
+![alt text](<Images/Structure Chart.png>)
 
 #### **IPO Chart**
 | Input                      | Process               | Output          |
@@ -81,6 +83,7 @@ Resources for the project were allocated strategically to ensure efficient and e
 | difficultyLevel | String  | Stores the selected difficulty or mode of the typing test        |
 
 #### **UML Class Diagram**
+![alt text](<Images/Class Diagram.png>)
 
 ---
 ### **4. Producing and Implementing**
