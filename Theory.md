@@ -113,7 +113,17 @@ Resources for the project were allocated strategically to ensure efficient and e
 #### Complete Data Dictionary 
 
 #### Full Test Logs
+1st test: rhythm game worked but the notes didn't get hit properly and the missed notes stayed on the screen. Typeosarus worked but the words where off the screen so the 50 - 150 words doesn't work properly.
+
+2nd Test: fixed the rhythm game but noticed that the songs didn't end when escape was pressed. 
+
+3rd test: noticed that you could not get back to main menu so added main menu button for both typeosarus and rhythm game.
+
+4th test: fixed typeosarus so that it would scroll for every letter pressed and not just a big chunk of words.
+
+5th test: 
 
 #### Raw Feedback Notes
+
 
 #### Exemplar Code Snippets
