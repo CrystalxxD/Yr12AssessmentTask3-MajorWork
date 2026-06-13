@@ -1,61 +1,145 @@
 import pygame
-import random
 import sys
 import os
+import math
+import random
 
-def run_osu_game():
+
+def run_rhythm_game():
     pygame.init()
     pygame.mixer.init()
-
-    # -------------------------
-    # SCREEN
-    # -------------------------
-    WIDTH, HEIGHT = 900, 600
+    
+    WIDTH, HEIGHT = 1450, 800
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("OSU")
-
+    pygame.display.set_caption("Rhythm Game")
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("consolas", 28)
     big_font = pygame.font.SysFont("consolas", 48)
+    small_font = pygame.font.SysFont("consolas", 16)
+
+    # -------------------------
+    # PARTICLE CLASSES
+    # -------------------------
+    class Particle:
+        def __init__(self, x, y, color, vel, ptype="circle"):
+            self.x, self.y, self.color = x, y, color
+            self.vx, self.vy = vel[0], vel[1]
+            self.life, self.size = 255, random.randint(3, 8)
+            self.type = ptype
+            self.rot = random.uniform(0, 360)
+            self.rot_speed = random.uniform(-5, 5)
+            
+        def update(self):
+            self.x += self.vx
+            self.y += self.vy
+            self.vy += 0.2
+            self.vx *= 0.98
+            self.life -= 8
+            self.size = max(1, self.size - 0.15)
+            self.rot += self.rot_speed
+            
+        def draw(self, screen):
+            if self.life <= 0:
+                return
+            c = self.color
+            
+            if self.type == "circle":
+                pygame.draw.circle(screen, c, (int(self.x), int(self.y)), int(self.size))
+            elif self.type == "spark":
+                ex = self.x + math.cos(math.radians(self.rot)) * self.size * 2
+                ey = self.y + math.sin(math.radians(self.rot)) * self.size * 2
+                pygame.draw.line(screen, c, (self.x, self.y), (ex, ey), max(1, int(self.size / 2)))
+            elif self.type == "glow":
+                surf = pygame.Surface((self.size * 2, self.size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (*c, self.life), (self.size, self.size), self.size)
+                screen.blit(surf, (self.x - self.size, self.y - self.size))
+
+    class NoteHitEffect:
+        def __init__(self, x, y, color, hit_type):
+            self.life = 30
+            self.particles = []
+            num = 25 if hit_type == "perfect" else 15 if hit_type == "good" else 10
+            
+            for _ in range(num):
+                a = random.uniform(0, 2 * math.pi)
+                s = random.uniform(2, 8)
+                vx = math.cos(a) * s
+                vy = math.sin(a) * s - 3
+                
+                if hit_type == "perfect":
+                    pt = random.choice(["circle", "spark", "glow"])
+                    pc = (random.randint(100, 255), random.randint(200, 255), random.randint(100, 200))
+                elif hit_type == "good":
+                    pt = random.choice(["circle", "spark"])
+                    pc = (random.randint(200, 255), random.randint(150, 220), random.randint(50, 150))
+                else:
+                    pt = "circle"
+                    pc = (random.randint(200, 255), random.randint(50, 100), random.randint(50, 100))
+                
+                self.particles.append(Particle(x, y, pc, (vx, vy), pt))
+                
+        def update(self):
+            self.life -= 1
+            for p in self.particles[:]:
+                p.update()
+                if p.life <= 0:
+                    self.particles.remove(p)
+            return len(self.particles) > 0
+            
+        def draw(self, screen):
+            for p in self.particles:
+                p.draw(screen)
+
+    class AmbientParticle:
+        def __init__(self):
+            self.x = random.randint(0, WIDTH)
+            self.y = random.randint(0, HEIGHT)
+            self.size = random.randint(1, 3)
+            self.speed = random.uniform(0.5, 2)
+            self.alpha = random.randint(30, 100)
+            self.color = random.choice([(100, 150, 255), (150, 100, 255), (100, 255, 150)])
+            
+        def update(self):
+            self.y -= self.speed
+            if self.y < 0:
+                self.y = HEIGHT
+                self.x = random.randint(0, WIDTH)
+                
+        def draw(self, screen):
+            if self.alpha > 0:
+                surf = pygame.Surface((self.size * 2, self.size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (*self.color, self.alpha), (self.size, self.size), self.size)
+                screen.blit(surf, (self.x - self.size, self.y - self.size))
+
+    # -------------------------
+    # GAME STATE VARIABLES
+    # -------------------------
+    hit_effects = []
+    ambient_particles = [AmbientParticle() for _ in range(50)]
+    lane_glows = [0] * 8
+    key_cooldown = {}
+    COOLDOWN_MS = 100
 
     # -------------------------
     # SONGS + BEATMAPS
     # -------------------------
     SONGS = {
-        "1": {
-            "name": "Suzume",
-            "audio": "Code/music/1music.mp3",
-            "beatmap": "Code/beatmaps/1music.map"
-        },
-        "2": {
-            "name": "White Keys",
-            "audio": "Code/music/2music.mp3",
-            "beatmap": "Code/beatmaps/2music.map"
-        },
-        "3": {
-            "name": "Prairies",
-            "audio": "Code/music/3music.mp3",
-            "beatmap": "Code/beatmaps/3music.map"
-        }
+        "1": {"name": "Suzume", "audio": "Code/music/1music.mp3", "beatmap": "Code/beatmaps/1music.map", "duration": 270, "theme_color": (100, 150, 255)},
+        "2": {"name": "White Keys", "audio": "Code/music/2music.mp3", "beatmap": "Code/beatmaps/2music.map", "duration": 144, "theme_color": (255, 200, 100)},
+        "3": {"name": "Prairies", "audio": "Code/music/3music.mp3", "beatmap": "Code/beatmaps/3music.map", "duration": 191, "theme_color": (100, 255, 150)}
     }
-
     selected_song = "1"
-    song_length_ms = 0  # Will store the song length
-
-    # -------------------------
-    # STATE
-    # -------------------------
     state = "song_select"
 
     # -------------------------
-    # LANES (8 KEYS)
+    # LANES
     # -------------------------
     KEYS = ["a", "s", "d", "f", "h", "j", "k", "l"]
-    LANE_COUNT = len(KEYS)
+    LANE_COUNT = 8
     LANE_WIDTH = WIDTH // LANE_COUNT
     lanes_x = [i * LANE_WIDTH for i in range(LANE_COUNT)]
-
-    HIT_LINE_Y = 520
+    HIT_LINE_Y = 700
+    NOTE_SPEED = 4.5
 
     # -------------------------
     # GAME VALUES
@@ -63,71 +147,92 @@ def run_osu_game():
     notes = []
     beatmap = []
     spawn_index = 0
-
     score = 0
     combo = 0
-
+    max_combo = 0
     perfect_hits = 0
     good_hits = 0
     misses = 0
     accuracy = 0
-
     judgement_text = ""
     judgement_timer = 0
-    
-    # Track note hit status
-    hit_note_index = None
-
+    judgement_scale = 1.0
     running = True
+    game_ended = False
+    music_start_time = 0
+    music_length_ms = 0
+    screen_flash = 0
+
+    # -------------------------
+    # BUTTONS
+    # -------------------------
+    buttons = {
+        "back": pygame.Rect(20, 20, 160, 40),
+        "exit": pygame.Rect(WIDTH - 140, 20, 120, 35),
+        "results": pygame.Rect(WIDTH // 2 - 100, HEIGHT - 70, 200, 45)
+    }
+    song_hover = {1: False, 2: False, 3: False}
 
     # -------------------------
     # NOTE CLASS
     # -------------------------
     class Note:
-        def __init__(self, lane):
+        __slots__ = ('lane', 'x', 'y', 'key', 'hit', 'missed', 'target_time', 'hit_animation', 'glow_intensity', 'trail')
+        
+        def __init__(self, lane, time_ms):
             self.lane = lane
             self.x = lanes_x[lane]
             self.y = -50
             self.key = KEYS[lane]
-            self.hit = False  # Track if note has been hit (Perfect/Good)
-            self.missed = False  # Track if note was missed
-
+            self.hit = False
+            self.missed = False
+            self.target_time = time_ms
+            self.hit_animation = 0
+            self.glow_intensity = 0
+            self.trail = []
+            
         def update(self):
-            if not self.hit:  # Only move if not hit
-                self.y += 6
-
+            if not self.hit and not self.missed:
+                self.y += NOTE_SPEED
+                self.trail.append((self.x + LANE_WIDTH // 2, self.y + 12))
+                if len(self.trail) > 5:
+                    self.trail.pop(0)
+                self.glow_intensity = abs(math.sin(pygame.time.get_ticks() * 0.01)) * 3
+                
+        def draw_trail(self):
+            for i, (tx, ty) in enumerate(self.trail):
+                a = int(100 * (i / len(self.trail)))
+                s = 4 - i * 0.5
+                if s > 0:
+                    surf = pygame.Surface((s * 2, s * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(surf, (0, 200, 255, a), (s, s), s)
+                    screen.blit(surf, (tx - s, ty - s))
+                    
         def draw(self):
-            # Different colors for hit/miss status
             if self.hit:
-                # Fade out effect for hit notes (will be removed after animation)
-                color = (100, 255, 100)
+                a = max(0, 255 - self.hit_animation * 20)
+                rw = int((LANE_WIDTH - 16) * max(0.3, 1 - self.hit_animation / 20))
+                rx = self.x + 8 + (LANE_WIDTH - 16 - rw) // 2
+                gs = pygame.Surface((rw + 10, 35), pygame.SRCALPHA)
+                pygame.draw.rect(gs, (100, 255, 100, a // 2), (0, 0, rw + 10, 35), border_radius=8)
+                screen.blit(gs, (rx - 5, self.y - 5))
+                pygame.draw.rect(screen, (100, 255, 100), (rx, self.y, rw, 25), border_radius=6)
+                
             elif self.missed:
-                color = (255, 80, 80)
+                pygame.draw.rect(screen, (255, 80, 80), (self.x + 8, self.y, LANE_WIDTH - 16, 25), border_radius=6)
+                cx = self.x + LANE_WIDTH // 2
+                cy = self.y + 12
+                pygame.draw.line(screen, (255, 255, 255), (cx - 8, cy - 6), (cx + 8, cy + 6), 2)
+                pygame.draw.line(screen, (255, 255, 255), (cx + 8, cy - 6), (cx - 8, cy + 6), 2)
+                
             else:
-                color = (0, 200, 255)
-            
-            pygame.draw.rect(
-                screen,
-                color,
-                (self.x + 8, self.y, LANE_WIDTH - 16, 25),
-                border_radius=6
-            )
-            
-            # Draw key letter on note
-            key_text = font.render(self.key.upper(), True, (255, 255, 255))
-            screen.blit(key_text, (self.x + LANE_WIDTH//2 - key_text.get_width()//2, self.y + 5))
-
-    # -------------------------
-    # GET SONG LENGTH
-    # -------------------------
-    def get_song_length(song_key):
-        try:
-            # Load the music file to get its length
-            pygame.mixer.music.load(SONGS[song_key]["audio"])
-            # pygame doesn't have a direct way to get length, so we'll track time
-            return None
-        except:
-            return None
+                for i in range(3):
+                    pygame.draw.rect(screen, (0, 100 + i * 50, 150, 100 - i * 30),
+                                     (self.x + 8 - i, self.y - i, LANE_WIDTH - 16 + i * 2, 25 + i * 2), border_radius=6)
+                pygame.draw.rect(screen, (0, 200, 255), (self.x + 8, self.y, LANE_WIDTH - 16, 25), border_radius=6)
+                pygame.draw.rect(screen, (255, 255, 255), (self.x + 8, self.y, LANE_WIDTH - 16, 25), border_radius=6, width=2)
+                kt = font.render(self.key.upper(), True, (255, 255, 255))
+                screen.blit(kt, (self.x + LANE_WIDTH // 2 - kt.get_width() // 2, self.y + 5))
 
     # -------------------------
     # LOAD BEATMAP
@@ -135,408 +240,495 @@ def run_osu_game():
     def load_beatmap(song_key):
         path = SONGS[song_key]["beatmap"]
         data = []
-
+        
+        if not os.path.exists(path):
+            dur = SONGS[song_key]["duration"] * 1000
+            return [(t, (t // 500) % 8) for t in range(0, int(dur), 500)]
+        
         try:
-            with open(path, "r") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        t, lane = line.split(",")
-                        data.append((int(t), int(lane)))
-        except Exception as e:
-            print("Missing beatmap:", path, e)
-
+            with open(path, 'r') as f:
+                for l in f:
+                    l = l.strip()
+                    if l and ',' in l:
+                        p = l.split(',')
+                        if len(p) >= 2:
+                            try:
+                                data.append((int(p[0]), int(p[1])))
+                            except:
+                                continue
+            print(f"Loaded {len(data)} notes")
+        except:
+            pass
+        
+        if not data:
+            dur = SONGS[song_key]["duration"] * 1000
+            data = [(t, (t // 400) % 8) for t in range(0, int(dur), 400)]
+            
         return data
+
+    # -------------------------
+    # CREATE HIT EFFECT
+    # -------------------------
+    def create_hit_effect(x, y, ht, lane):
+        tc = SONGS[selected_song]["theme_color"]
+        e = NoteHitEffect(x, y, tc, ht)
+        
+        if ht == "perfect":
+            for _ in range(8):
+                a = random.uniform(0, 2 * math.pi)
+                vx = math.cos(a) * random.uniform(3, 6)
+                vy = math.sin(a) * random.uniform(3, 6) - 2
+                e.particles.append(Particle(x, y, (255, 215, 0), (vx, vy), "spark"))
+            lane_glows[lane] = 20
+            
+        return e
+
+    # -------------------------
+    # HIT SYSTEM
+    # -------------------------
+    def check_hit(key):
+        nonlocal score, combo, max_combo, screen_flash, judgement_scale
+        nonlocal judgement_text, judgement_timer, perfect_hits, good_hits, misses
+        
+        now = pygame.time.get_ticks()
+        if key in key_cooldown and now - key_cooldown[key] < COOLDOWN_MS:
+            return
+        key_cooldown[key] = now
+        
+        idx = KEYS.index(key)
+        best = None
+        best_diff = 9999
+        best_i = -1
+        
+        for i, n in enumerate(notes):
+            if n.key == key and not n.hit and not n.missed and n.y <= HIT_LINE_Y + 80:
+                d = abs(n.y - HIT_LINE_Y)
+                if d < best_diff:
+                    best = n
+                    best_diff = d
+                    best_i = i
+                    
+        if not best:
+            combo = 0
+            misses += 1
+            judgement_text = "MISS"
+            judgement_timer = 400
+            judgement_scale = 1.2
+            hit_effects.append(create_hit_effect(lanes_x[idx] + LANE_WIDTH // 2, HIT_LINE_Y, "miss", idx))
+            return
+            
+        hx = best.x + LANE_WIDTH // 2
+        hy = HIT_LINE_Y
+        
+        if best_diff <= 55:
+            score += 300 * (1 + combo // 15)
+            combo += 1
+            perfect_hits += 1
+            judgement_text = "PERFECT"
+            hit_effects.append(create_hit_effect(hx, hy, "perfect", idx))
+            screen_flash = 5
+            
+        elif best_diff <= 110:
+            score += 150 * (1 + combo // 15)
+            combo += 1
+            good_hits += 1
+            judgement_text = "GOOD"
+            hit_effects.append(create_hit_effect(hx, hy, "good", idx))
+            
+        else:
+            combo = 0
+            misses += 1
+            judgement_text = "MISS"
+            best.missed = True
+            hit_effects.append(create_hit_effect(hx, hy, "miss", idx))
+            
+        if combo > max_combo:
+            max_combo = combo
+            
+        if best_i != -1 and best_i < len(notes):
+            notes.pop(best_i)
+            
+        judgement_timer = 400
+        judgement_scale = 1.2
 
     # -------------------------
     # RESET GAME
     # -------------------------
     def reset_game():
-        nonlocal notes, score, combo
-        nonlocal perfect_hits, good_hits, misses
-        nonlocal judgement_text, judgement_timer
-        nonlocal spawn_index, beatmap, hit_note_index
-
+        nonlocal notes, score, combo, max_combo, perfect_hits, good_hits, misses
+        nonlocal judgement_text, judgement_timer, spawn_index, beatmap, game_ended
+        nonlocal hit_effects, key_cooldown
+        
         notes = []
         score = 0
         combo = 0
-
+        max_combo = 0
         perfect_hits = 0
         good_hits = 0
         misses = 0
-
         judgement_text = ""
         judgement_timer = 0
-
         spawn_index = 0
-        hit_note_index = None
+        game_ended = False
+        hit_effects = []
+        key_cooldown = {}
         beatmap = load_beatmap(selected_song)
 
     # -------------------------
     # START SONG
     # -------------------------
     def start_song(song_key):
-        nonlocal beatmap, spawn_index
-
+        nonlocal beatmap, spawn_index, music_start_time, music_length_ms
+        
         beatmap = load_beatmap(song_key)
         spawn_index = 0
-
+        music_start_time = pygame.time.get_ticks()
+        music_length_ms = int(SONGS[song_key]["duration"] * 1000)
+        
         try:
-            pygame.mixer.music.load(SONGS[song_key]["audio"])
-            pygame.mixer.music.play()
-        except Exception as e:
-            print("Error playing music:", e)
+            if os.path.exists(SONGS[song_key]["audio"]):
+                pygame.mixer.music.load(SONGS[song_key]["audio"])
+                pygame.mixer.music.play()
+        except:
+            pass
 
     # -------------------------
-    # HIT SYSTEM (MS BASED)
-    # Notes only disappear on PERFECT/GOOD hits
-    # MISS hits count as miss but note stays visible
+    # DRAW FUNCTIONS
     # -------------------------
-    def check_hit(key_pressed):
-        nonlocal score, combo
-        nonlocal judgement_text, judgement_timer
-        nonlocal perfect_hits, good_hits, misses
-
-        PERFECT_WINDOW = 50
-        GOOD_WINDOW = 100
-
-        best = None
-        best_diff = 9999
-        best_index = -1
-
-        # Find the closest note in the correct lane that hasn't been hit yet
-        for i, n in enumerate(notes):
-            if n.key == key_pressed and not n.hit and not n.missed:
-                diff = abs(n.y - HIT_LINE_Y)
-                if diff < best_diff:
-                    best = n
-                    best_diff = diff
-                    best_index = i
-
-        if best is None:
-            # No note to hit - this is a miss (but no note disappears)
-            combo = 0
-            misses += 1
-            judgement_text = "MISS"
-            judgement_timer = 400
-            return
-
-        # Hit the note
-        if best_diff <= PERFECT_WINDOW:
-            score += 300 * (1 + combo // 10)  # Bonus for higher combo
-            combo += 1
-            perfect_hits += 1
-            judgement_text = "PERFECT"
-            best.hit = True  # Mark as hit (will be removed)
-            
-        elif best_diff <= GOOD_WINDOW:
-            score += 150 * (1 + combo // 10)
-            combo += 1
-            good_hits += 1
-            judgement_text = "GOOD"
-            best.hit = True  # Mark as hit (will be removed)
-            
-        else:
-            # Hit outside timing window - miss, note stays
-            combo = 0
-            misses += 1
-            judgement_text = "MISS"
-            best.missed = True  # Mark as missed but keep visible
-
-        judgement_timer = 400
-
-    # -------------------------
-    # MENU
-    # -------------------------
-    def draw_menu():
-        screen.fill((10, 10, 15))
-
-        title = font.render("Select Song", True, (220, 220, 220))
-        screen.blit(title, (WIDTH//2 - title.get_width()//2, 120))
-
-        songs = [
-            "1 - Suzume",
-            "2 - White Keys",
-            "3 - Prairies"
-        ]
-
-        y = 220
-        for s in songs:
-            txt = font.render(s, True, (180, 180, 180))
-            screen.blit(txt, (WIDTH//2 - txt.get_width()//2, y))
-            y += 60
-            
-        instr = font.render("Press 1, 2, or 3 to select", True, (100, 100, 120))
-        screen.blit(instr, (WIDTH//2 - instr.get_width()//2, HEIGHT - 80))
-
-    # -------------------------
-    # DRAW RESULTS SCREEN
-    # -------------------------
-    def draw_results():
-        screen.fill((10, 10, 15))
-        
-        results_title = big_font.render("Results", True, (220, 220, 220))
-        screen.blit(results_title, (WIDTH//2 - results_title.get_width()//2, 100))
-        
-        score_text = font.render(f"Final Score: {score}", True, (220, 220, 220))
-        screen.blit(score_text, (WIDTH//2 - score_text.get_width()//2, 200))
-        
-        acc_text = font.render(f"Accuracy: {accuracy:.2f}%", True, (220, 220, 220))
-        screen.blit(acc_text, (WIDTH//2 - acc_text.get_width()//2, 250))
-        
-        perfect_text = font.render(f"Perfect: {perfect_hits}", True, (0, 255, 120))
-        screen.blit(perfect_text, (WIDTH//2 - perfect_text.get_width()//2, 310))
-        
-        good_text = font.render(f"Good: {good_hits}", True, (255, 200, 0))
-        screen.blit(good_text, (WIDTH//2 - good_text.get_width()//2, 350))
-        
-        miss_text = font.render(f"Miss: {misses}", True, (255, 80, 80))
-        screen.blit(miss_text, (WIDTH//2 - miss_text.get_width()//2, 390))
-        
-        max_combo_text = font.render(f"Max Combo: {max_combo}", True, (220, 220, 220))
-        screen.blit(max_combo_text, (WIDTH//2 - max_combo_text.get_width()//2, 450))
-        
-        cont_text = font.render("Press ESC to return to menu", True, (100, 100, 120))
-        screen.blit(cont_text, (WIDTH//2 - cont_text.get_width()//2, HEIGHT - 60))
+    def draw_gradient_bg():
+        tc = SONGS[selected_song]["theme_color"]
+        for y in range(HEIGHT):
+            r = int(10 + (tc[0] - 10) * (y / HEIGHT) * 0.3)
+            g = int(10 + (tc[1] - 10) * (y / HEIGHT) * 0.3)
+            b = int(20 + (tc[2] - 20) * (y / HEIGHT) * 0.3)
+            pygame.draw.line(screen, (r, g, b), (0, y), (WIDTH, y))
 
     # -------------------------
     # MAIN LOOP
     # -------------------------
-    results_display_time = 0
-    max_combo = 0
-    game_ended = False
-    music_start_time = 0
-    
     while running:
         clock.tick(60)
+        
+        # Update particles
+        for p in ambient_particles:
+            p.update()
+            
+        for e in hit_effects[:]:
+            if not e.update():
+                hit_effects.remove(e)
+                
+        if screen_flash > 0:
+            screen_flash -= 1
+        if judgement_scale > 1.0:
+            judgement_scale -= 0.05
+        if judgement_timer > 0:
+            judgement_timer -= clock.get_time()
 
         # -------------------------
-        # MENU STATE
+        # SONG SELECT STATE
         # -------------------------
         if state == "song_select":
-            draw_menu()
+            draw_gradient_bg()
+            
+            for p in ambient_particles:
+                p.draw(screen)
+                
+            mouse = pygame.mouse.get_pos()
+            
+            for i in range(1, 4):
+                r = pygame.Rect(WIDTH // 2 - 200, 230 + (i - 1) * 70, 400, 50)
+                song_hover[i] = r.collidepoint(mouse)
+                c = (40, 40, 60) if song_hover[i] else (20, 20, 30)
+                pygame.draw.rect(screen, c, r, border_radius=10)
+                
+                colors = [(100, 150, 255), (255, 200, 100), (100, 255, 150)]
+                border_width = 4 if song_hover[i] else 2
+                pygame.draw.rect(screen, colors[i - 1], r, border_width, border_radius=10)
+                
+                song_names = ['Suzume', 'White Keys', 'Prairies']
+                txt = font.render(f"{i} - {song_names[i - 1]}", True, (220, 220, 220))
+                screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, 230 + (i - 1) * 70))
+                
+                durations = ["4:30", "2:24", "3:11"]
+                dur = small_font.render(durations[i - 1], True, (150, 150, 150))
+                screen.blit(dur, (WIDTH // 2 - dur.get_width() // 2, 255 + (i - 1) * 70))
+                
+            pygame.draw.rect(screen, (40, 40, 50), buttons["back"], border_radius=10)
+            pygame.draw.rect(screen, (200, 200, 200), buttons["back"], 2, border_radius=10)
+            screen.blit(small_font.render("Main Menu", True, (220, 220, 220)), (buttons["back"].x + 10, buttons["back"].y + 12))
+            
+            title = big_font.render("RHYTHM GAME", True, (0, 200, 255))
+            screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
+            
             pygame.display.update()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_1:
-                        selected_song = "1"
-                        start_song("1")
-                        reset_game()
-                        state = "game"
-                        game_ended = False
-                        music_start_time = pygame.time.get_ticks()
-                        max_combo = 0
-
-                    elif event.key == pygame.K_2:
-                        selected_song = "2"
-                        start_song("2")
-                        reset_game()
-                        state = "game"
-                        game_ended = False
-                        music_start_time = pygame.time.get_ticks()
-                        max_combo = 0
-
-                    elif event.key == pygame.K_3:
-                        selected_song = "3"
-                        start_song("3")
-                        reset_game()
-                        state = "game"
-                        game_ended = False
-                        music_start_time = pygame.time.get_ticks()
-                        max_combo = 0
-
-                    elif event.key == pygame.K_ESCAPE:
-                        running = False
-
+            
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    return
+                    
+                if e.type == pygame.MOUSEBUTTONDOWN:
+                    if buttons["back"].collidepoint(e.pos):
+                        return
+                        
+                    for i in range(1, 4):
+                        rect = pygame.Rect(WIDTH // 2 - 200, 230 + (i - 1) * 70, 400, 50)
+                        if rect.collidepoint(e.pos):
+                            selected_song = str(i)
+                            state = "game"
+                            reset_game()
+                            start_song(str(i))
+                            
+                if e.type == pygame.KEYDOWN and e.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+                    selected_song = str(e.key - pygame.K_1 + 1)
+                    state = "game"
+                    reset_game()
+                    start_song(selected_song)
+                    
             continue
 
         # -------------------------
         # RESULTS STATE
         # -------------------------
         if state == "results":
-            draw_results()
+            draw_gradient_bg()
+            
+            for p in ambient_particles:
+                p.draw(screen)
+            for e in hit_effects:
+                e.draw(screen)
+                
+            title = big_font.render("RESULTS", True, (0, 200, 255))
+            screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
+            
+            panel = pygame.Rect(WIDTH // 2 - 250, 160, 500, 300)
+            pygame.draw.rect(screen, (20, 20, 30), panel, border_radius=15)
+            pygame.draw.rect(screen, (0, 200, 255), panel, 3, border_radius=15)
+            
+            # Score
+            score_text = big_font.render(f"{score}", True, (255, 215, 0))
+            screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 180))
+            
+            # Accuracy
+            acc_text = font.render(f"Accuracy: {accuracy:.2f}%", True, (220, 220, 220))
+            screen.blit(acc_text, (WIDTH // 2 - acc_text.get_width() // 2, 250))
+            
+            # PERFECT
+            perfect_text = font.render(f"PERFECT: {perfect_hits}", True, (0, 255, 120))
+            screen.blit(perfect_text, (WIDTH // 2 - 150, 310))
+            
+            # GOOD
+            good_text = font.render(f"GOOD: {good_hits}", True, (255, 200, 0))
+            screen.blit(good_text, (WIDTH // 2 + 20, 310))
+            
+            # MISS
+            miss_text = font.render(f"MISS: {misses}", True, (255, 80, 80))
+            screen.blit(miss_text, (WIDTH // 2 - 150, 350))
+            
+            # MAX COMBO
+            combo_text = font.render(f"MAX COMBO: {max_combo}", True, (220, 220, 220))
+            screen.blit(combo_text, (WIDTH // 2 - combo_text.get_width() // 2, 390))
+            
+            # Grade
+            if accuracy >= 95:
+                grade = "SS"
+                gc = (255, 215, 0)
+            elif accuracy >= 90:
+                grade = "S"
+                gc = (255, 215, 0)
+            elif accuracy >= 80:
+                grade = "A"
+                gc = (0, 255, 120)
+            elif accuracy >= 70:
+                grade = "B"
+                gc = (255, 200, 0)
+            elif accuracy >= 60:
+                grade = "C"
+                gc = (255, 100, 100)
+            else:
+                grade = "D"
+                gc = (255, 80, 80)
+                
+            grade_text = big_font.render(grade, True, gc)
+            screen.blit(grade_text, (WIDTH // 2 - grade_text.get_width() // 2, 440))
+            
+            mouse = pygame.mouse.get_pos()
+            c = (60, 60, 80) if buttons["results"].collidepoint(mouse) else (40, 40, 50)
+            pygame.draw.rect(screen, c, buttons["results"], border_radius=10)
+            
+            border_color = (255, 100, 100) if buttons["results"].collidepoint(mouse) else (200, 200, 200)
+            border_width = 3 if buttons["results"].collidepoint(mouse) else 2
+            pygame.draw.rect(screen, border_color, buttons["results"], border_width, border_radius=10)
+            
+            exit_text = font.render("Exit", True, (220, 220, 220))
+            screen.blit(exit_text, (buttons["results"].x + buttons["results"].width // 2 - 30, buttons["results"].y + 13))
+            
             pygame.display.update()
             
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+            for e in pygame.event.get():
+                if e.type == pygame.QUIT:
+                    return
                     
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        state = "song_select"
-                        game_ended = False
-                        pygame.mixer.music.stop()
-
+                if e.type == pygame.MOUSEBUTTONDOWN and buttons["results"].collidepoint(e.pos):
+                    return
+                    
+                if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                    state = "song_select"
+                    game_ended = False
+                    pygame.mixer.music.stop()
+                    
             continue
 
         # -------------------------
-        # GAME LOGIC
+        # GAME STATE
         # -------------------------
-        screen.fill((15, 15, 20))
-
-        current_time = pygame.mixer.music.get_pos()
+        elapsed = pygame.time.get_ticks() - music_start_time
         
-        # Check if music has ended (get_pos returns -1 when no music playing or ended)
-        if pygame.mixer.music.get_busy() == False and not game_ended and state == "game":
-            if current_time == -1 or (pygame.time.get_ticks() - music_start_time > 1000):
-                # Music has ended - show results
-                state = "results"
-                game_ended = True
-                # Calculate final accuracy
-                total = perfect_hits + good_hits + misses
-                if total > 0:
-                    accuracy = ((perfect_hits * 100) + (good_hits * 50)) / (total * 100) * 100
-                continue
+        if not game_ended and elapsed >= music_length_ms + 1000:
+            game_ended = True
+            state = "results"
+            total = perfect_hits + good_hits + misses
+            if total > 0:
+                accuracy = ((perfect_hits * 100) + (good_hits * 50)) / (total * 100) * 100
+            continue
 
-        # Only process game logic if music is playing
-        if pygame.mixer.music.get_busy():
-            current_time = pygame.mixer.music.get_pos()
+        draw_gradient_bg()
+        
+        for p in ambient_particles:
+            p.draw(screen)
             
-            # beatmap spawn - infinite (keeps spawning all notes, loop continues until music ends)
+        cur = pygame.mixer.music.get_pos()
+        if cur < 0 or not pygame.mixer.music.get_busy():
+            cur = elapsed
+            
+        if not game_ended and beatmap:
             while spawn_index < len(beatmap):
-                t, lane = beatmap[spawn_index]
-
-                if current_time >= t:
-                    notes.append(Note(lane))
+                t, l = beatmap[spawn_index]
+                if cur >= t:
+                    notes.append(Note(l, t))
                     spawn_index += 1
                 else:
                     break
 
         # Draw lanes
         for i in range(LANE_COUNT):
-            pygame.draw.rect(screen, (25, 25, 35),
-                             (lanes_x[i], 0, LANE_WIDTH, HEIGHT))
-            # Draw lane dividers
-            pygame.draw.line(screen, (40, 40, 50),
-                             (lanes_x[i], 0),
-                             (lanes_x[i], HEIGHT), 2)
-            # Draw key labels at bottom
-            key_label = font.render(KEYS[i].upper(), True, (80, 80, 90))
-            screen.blit(key_label, (lanes_x[i] + LANE_WIDTH//2 - key_label.get_width()//2, HEIGHT - 35))
-
-        # Hit line
-        pygame.draw.line(screen, (0, 255, 120),
-                         (0, HIT_LINE_Y),
-                         (WIDTH, HIT_LINE_Y), 4)
+            pygame.draw.rect(screen, (25, 25, 35), (lanes_x[i], 0, LANE_WIDTH, HEIGHT))
+            pygame.draw.line(screen, (40, 40, 50), (lanes_x[i], 0), (lanes_x[i], HEIGHT), 2)
+            
+        # Draw key labels
+        for i, k in enumerate(KEYS):
+            kl = font.render(k.upper(), True, (100, 100, 120))
+            screen.blit(kl, (lanes_x[i] + LANE_WIDTH // 2 - kl.get_width() // 2, HEIGHT - 35))
+            
+        # Draw hit line
+        for i in range(5):
+            pygame.draw.line(screen, (0, 255, 120, 100 - i * 20), (0, HIT_LINE_Y - i), (WIDTH, HIT_LINE_Y - i), 3)
+        pygame.draw.line(screen, (0, 255, 120), (0, HIT_LINE_Y), (WIDTH, HIT_LINE_Y), 4)
         
-        # Draw glow effect on hit line
-        for i in range(3):
-            alpha = 100 - i * 30
-            pygame.draw.line(screen, (0, 255, 120, alpha),
-                             (0, HIT_LINE_Y - i * 2),
-                             (WIDTH, HIT_LINE_Y - i * 2), 1)
+        # Draw lane glows
+        for i, intensity in enumerate(lane_glows):
+            if intensity > 0:
+                s = pygame.Surface((LANE_WIDTH, HEIGHT), pygame.SRCALPHA)
+                pygame.draw.rect(s, (255, 255, 255, min(200, intensity * 15)), (0, 0, LANE_WIDTH, HEIGHT))
+                screen.blit(s, (lanes_x[i], 0))
+                lane_glows[i] -= 1
 
         # Update and draw notes
         for n in notes[:]:
             n.update()
+            n.draw_trail()
             n.draw()
-
-            # Check if note passed the hit line without being hit
-            if n.y > HIT_LINE_Y + 30 and not n.hit and not n.missed:
-                notes.remove(n)
+            
+            if not n.hit and not n.missed and n.y > HIT_LINE_Y + 50:
                 combo = 0
                 misses += 1
                 judgement_text = "MISS"
                 judgement_timer = 400
-                continue
+                judgement_scale = 1.2
+                hit_effects.append(create_hit_effect(lanes_x[n.lane] + LANE_WIDTH // 2, HIT_LINE_Y, "miss", n.lane))
+                notes.remove(n)
+
+        # Draw hit effects
+        for e in hit_effects:
+            e.draw(screen)
             
-            # Remove hit notes after they've been drawn (for animation effect)
-            if n.hit and n.y > HIT_LINE_Y + 20:
-                notes.remove(n)
-            elif n.missed and n.y > HEIGHT:
-                notes.remove(n)
-
-        # Update max combo
-        if combo > max_combo:
-            max_combo = combo
-
-        # Judgement text
+        # Draw judgement text
         if judgement_timer > 0:
-            if judgement_text == "PERFECT":
-                color = (0, 255, 120)
-                # Add bouncing effect
-                scale = 1 + (judgement_timer / 400) * 0.5
-            elif judgement_text == "GOOD":
-                color = (255, 200, 0)
-                scale = 1 + (judgement_timer / 400) * 0.3
+            if "PERFECT" in judgement_text:
+                c = (0, 255, 120)
+            elif "GOOD" in judgement_text:
+                c = (255, 200, 0)
             else:
-                color = (255, 80, 80)
-                scale = 1
+                c = (255, 80, 80)
+                
+            sf = pygame.font.SysFont("consolas", int(28 * judgement_scale))
+            t = sf.render(judgement_text, True, c)
+            screen.blit(t, (WIDTH // 2 - t.get_width() // 2, 200 - (400 - judgement_timer) // 10))
             
-            text = font.render(judgement_text, True, color)
-            # Center text
-            text_x = WIDTH//2 - text.get_width()//2
-            text_y = 200 - (400 - judgement_timer) // 10
-            screen.blit(text, (text_x, text_y))
-            
-            # Show combo counter for Perfect/Good
-            if judgement_text in ["PERFECT", "GOOD"] and combo > 1:
-                combo_text = font.render(f"{combo}x", True, (220, 220, 220))
-                screen.blit(combo_text, (WIDTH//2 - combo_text.get_width()//2, text_y + 40))
-            
-            judgement_timer -= clock.get_time()
-
-        # Update accuracy (real-time)
+            if ("PERFECT" in judgement_text or "GOOD" in judgement_text) and combo > 1:
+                ct = sf.render(f"{combo}x", True, (220, 220, 220))
+                screen.blit(ct, (WIDTH // 2 - ct.get_width() // 2, 200 - (400 - judgement_timer) // 10 + 50))
+                
+        # Update accuracy
         total = perfect_hits + good_hits + misses
         if total > 0:
             accuracy = ((perfect_hits * 100) + (good_hits * 50)) / (total * 100) * 100
 
-        # Draw note hit indicators on lanes
-        for event in pygame.event.get(pygame.KEYDOWN):
-            if event.type == pygame.KEYDOWN:
-                key = pygame.key.name(event.key)
-                if key in KEYS:
-                    # Flash effect on lane when key pressed
-                    lane_idx = KEYS.index(key)
-                    flash_rect = pygame.Rect(lanes_x[lane_idx], HIT_LINE_Y - 10, LANE_WIDTH, 20)
-                    pygame.draw.rect(screen, (0, 255, 120, 100), flash_rect)
-
-        # UI
-        score_text = font.render(f"Score: {score}", True, (220, 220, 220))
-        screen.blit(score_text, (20, 20))
+        # Draw UI
+        screen.blit(font.render(f"Score: {score}", True, (220, 220, 220)), (20, 20))
+        screen.blit(font.render(f"Combo: {combo}", True, (220, 220, 220)), (20, 55))
+        screen.blit(font.render(f"Acc: {accuracy:.1f}%", True, (220, 220, 220)), (20, 90))
         
-        combo_text = font.render(f"Combo: {combo}", True, (220, 220, 220))
-        screen.blit(combo_text, (20, 55))
+        mouse = pygame.mouse.get_pos()
+        c = (60, 60, 80) if buttons["exit"].collidepoint(mouse) else (40, 40, 50)
+        pygame.draw.rect(screen, c, buttons["exit"], border_radius=8)
         
-        acc_text = font.render(f"Acc: {accuracy:.1f}%", True, (220, 220, 220))
-        screen.blit(acc_text, (20, 90))
+        border_color = (255, 100, 100) if buttons["exit"].collidepoint(mouse) else (200, 200, 200)
+        border_width = 3 if buttons["exit"].collidepoint(mouse) else 2
+        pygame.draw.rect(screen, border_color, buttons["exit"], border_width, border_radius=8)
         
-        # Show remaining notes
-        notes_left = len(beatmap) - spawn_index
-        if notes_left > 0:
-            notes_text = font.render(f"Left: {notes_left}", True, (150, 150, 160))
-            screen.blit(notes_text, (20, 125))
-
+        exit_text = small_font.render("Exit", True, (220, 220, 220))
+        screen.blit(exit_text, (buttons["exit"].x + buttons["exit"].width // 2 - 20, buttons["exit"].y + 10))
+        
+        # Progress bar
+        prog = min(1.0, elapsed / music_length_ms) if music_length_ms > 0 else 0
+        pygame.draw.rect(screen, (40, 40, 50), (WIDTH - 320, 20, 300, 8))
+        pygame.draw.rect(screen, (0, 200, 255), (WIDTH - 320, 20, 300 * prog, 8))
+        
+        # Timer
+        tl = max(0, (music_length_ms - elapsed) / 1000)
+        screen.blit(font.render(f"{int(tl // 60)}:{int(tl % 60):02d}", True, (150, 150, 160)), (WIDTH - 160, 35))
+        
+        # Screen flash
+        if screen_flash > 0:
+            fs = pygame.Surface((WIDTH, HEIGHT))
+            fs.fill((255, 255, 255))
+            fs.set_alpha(screen_flash * 10)
+            screen.blit(fs, (0, 0))
+            
         pygame.display.update()
 
-        # -------------------------
-        # INPUT HANDLING
-        # -------------------------
-        for event in pygame.event.get():
-
-            if event.type == pygame.QUIT:
-                running = False
-
-            if event.type == pygame.KEYDOWN:
-                key = pygame.key.name(event.key)
-
-                if key in KEYS:
-                    check_hit(key)
-
-                if key == "escape" and state == "game":
+        # Handle input
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return
+                
+            if e.type == pygame.MOUSEBUTTONDOWN and buttons["exit"].collidepoint(e.pos):
+                pygame.mixer.music.stop()
+                state = "song_select"
+                
+            if e.type == pygame.KEYDOWN:
+                if pygame.key.name(e.key) in KEYS:
+                    check_hit(pygame.key.name(e.key))
+                    
+                if pygame.key.name(e.key) == "escape":
                     pygame.mixer.music.stop()
                     state = "song_select"
                     
-                # Debug: skip to results
-                if key == "r" and state == "game":
+                if pygame.key.name(e.key) == "r" and state == "game":
                     state = "results"
                     total = perfect_hits + good_hits + misses
                     if total > 0:
                         accuracy = ((perfect_hits * 100) + (good_hits * 50)) / (total * 100) * 100
-
+                        
     pygame.quit()
     sys.exit()
