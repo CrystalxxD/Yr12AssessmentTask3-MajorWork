@@ -24,7 +24,7 @@ class SentenceGenerator:
 def run_typeosarus():
     WIDTH, HEIGHT = 1450, 800
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Typeosarus - Monkeytype Style")
+    pygame.display.set_caption("Typeosarus")
     clock = pygame.time.Clock()
 
     FONT = pygame.font.SysFont("consolas", 42, bold=True)
