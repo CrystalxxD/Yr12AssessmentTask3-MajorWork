@@ -167,7 +167,7 @@ def run_rhythm_game():
     # BUTTONS
     # -------------------------
     buttons = {
-        "back": pygame.Rect(20, 20, 160, 40),
+        "back": pygame.Rect(20, 20, 120, 40),
         "exit": pygame.Rect(WIDTH - 140, 20, 120, 35),
         "results": pygame.Rect(WIDTH // 2 - 100, HEIGHT - 70, 200, 45)
     }
@@ -435,8 +435,9 @@ def run_rhythm_game():
                 
             mouse = pygame.mouse.get_pos()
             
+            # Song buttons with height 52, spacing 72
             for i in range(1, 4):
-                r = pygame.Rect(WIDTH // 2 - 200, 230 + (i - 1) * 70, 400, 50)
+                r = pygame.Rect(WIDTH // 2 - 200, 230 + (i - 1) * 72, 400, 52)  # Height 52, spacing 72
                 song_hover[i] = r.collidepoint(mouse)
                 c = (40, 40, 60) if song_hover[i] else (20, 20, 30)
                 pygame.draw.rect(screen, c, r, border_radius=10)
@@ -447,11 +448,13 @@ def run_rhythm_game():
                 
                 song_names = ['Suzume', 'White Keys', 'Prairies']
                 txt = font.render(f"{i} - {song_names[i - 1]}", True, (220, 220, 220))
-                screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, 230 + (i - 1) * 70))
+                # Moved 3px down: start_y + 25 (was 22)
+                screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, 233 + (i - 1) * 72))
                 
                 durations = ["4:30", "2:24", "3:11"]
                 dur = small_font.render(durations[i - 1], True, (150, 150, 150))
-                screen.blit(dur, (WIDTH // 2 - dur.get_width() // 2, 255 + (i - 1) * 70))
+                # Moved 3px down: start_y + 47 (was 44)
+                screen.blit(dur, (WIDTH // 2 - dur.get_width() // 2, 260 + (i - 1) * 72))
                 
             pygame.draw.rect(screen, (40, 40, 50), buttons["back"], border_radius=10)
             pygame.draw.rect(screen, (200, 200, 200), buttons["back"], 2, border_radius=10)
@@ -489,6 +492,11 @@ def run_rhythm_game():
         # -------------------------
         # RESULTS STATE
         # -------------------------
+# In rhythm_game.py, replace the RESULTS STATE section (around line 400-470) with:
+
+# -------------------------
+# RESULTS STATE
+# -------------------------
         if state == "results":
             draw_gradient_bg()
             
@@ -496,39 +504,51 @@ def run_rhythm_game():
                 p.draw(screen)
             for e in hit_effects:
                 e.draw(screen)
-                
+            
+            # Results panel - larger and better positioned
+            panel = pygame.Rect(WIDTH // 2 - 350, 100, 700, 520)
+            pygame.draw.rect(screen, (20, 20, 30), panel, border_radius=20)
+            pygame.draw.rect(screen, (0, 200, 255), panel, 3, border_radius=20)
+            
+            # Title
             title = big_font.render("RESULTS", True, (0, 200, 255))
-            screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
+            screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 120))
             
-            panel = pygame.Rect(WIDTH // 2 - 250, 160, 500, 300)
-            pygame.draw.rect(screen, (20, 20, 30), panel, border_radius=15)
-            pygame.draw.rect(screen, (0, 200, 255), panel, 3, border_radius=15)
-            
-            # Score
+            # Score - bigger and centered
             score_text = big_font.render(f"{score}", True, (255, 215, 0))
-            screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 180))
+            screen.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, 175))
+            score_label = small_font.render("SCORE", True, (150, 150, 160))
+            screen.blit(score_label, (WIDTH // 2 - score_label.get_width() // 2, 225))
             
-            # Accuracy
-            acc_text = font.render(f"Accuracy: {accuracy:.2f}%", True, (220, 220, 220))
-            screen.blit(acc_text, (WIDTH // 2 - acc_text.get_width() // 2, 250))
+            # Divider line
+            pygame.draw.line(screen, (60, 60, 80), (WIDTH // 2 - 250, 255), (WIDTH // 2 + 250, 255), 2)
             
-            # PERFECT
+            # Stats in 2-column layout for better readability
+            # Left column
             perfect_text = font.render(f"PERFECT: {perfect_hits}", True, (0, 255, 120))
-            screen.blit(perfect_text, (WIDTH // 2 - 150, 310))
+            screen.blit(perfect_text, (WIDTH // 2 - 180, 280))
             
-            # GOOD
             good_text = font.render(f"GOOD: {good_hits}", True, (255, 200, 0))
-            screen.blit(good_text, (WIDTH // 2 + 20, 310))
+            screen.blit(good_text, (WIDTH // 2 - 180, 325))
             
-            # MISS
             miss_text = font.render(f"MISS: {misses}", True, (255, 80, 80))
-            screen.blit(miss_text, (WIDTH // 2 - 150, 350))
+            screen.blit(miss_text, (WIDTH // 2 - 180, 370))
             
-            # MAX COMBO
-            combo_text = font.render(f"MAX COMBO: {max_combo}", True, (220, 220, 220))
-            screen.blit(combo_text, (WIDTH // 2 - combo_text.get_width() // 2, 390))
+            # Right column
+            accuracy_text = font.render(f"ACCURACY", True, (180, 180, 190))
+            screen.blit(accuracy_text, (WIDTH // 2 + 20, 280))
+            acc_value = font.render(f"{accuracy:.2f}%", True, (220, 220, 220))
+            screen.blit(acc_value, (WIDTH // 2 + 20, 310))
             
-            # Grade
+            combo_text = font.render(f"MAX COMBO", True, (180, 180, 190))
+            screen.blit(combo_text, (WIDTH // 2 + 20, 355))
+            combo_value = font.render(f"{max_combo}", True, (220, 220, 220))
+            screen.blit(combo_value, (WIDTH // 2 + 20, 385))
+            
+            # Divider
+            pygame.draw.line(screen, (60, 60, 80), (WIDTH // 2 - 250, 420), (WIDTH // 2 + 250, 420), 2)
+            
+            # Grade - bigger
             if accuracy >= 95:
                 grade = "SS"
                 gc = (255, 215, 0)
@@ -547,20 +567,26 @@ def run_rhythm_game():
             else:
                 grade = "D"
                 gc = (255, 80, 80)
-                
+            
             grade_text = big_font.render(grade, True, gc)
             screen.blit(grade_text, (WIDTH // 2 - grade_text.get_width() // 2, 440))
             
-            mouse = pygame.mouse.get_pos()
-            c = (60, 60, 80) if buttons["results"].collidepoint(mouse) else (40, 40, 50)
-            pygame.draw.rect(screen, c, buttons["results"], border_radius=10)
+            # Grade label
+            grade_label = small_font.render("GRADE", True, (150, 150, 160))
+            screen.blit(grade_label, (WIDTH // 2 - grade_label.get_width() // 2, 490))
             
-            border_color = (255, 100, 100) if buttons["results"].collidepoint(mouse) else (200, 200, 200)
-            border_width = 3 if buttons["results"].collidepoint(mouse) else 2
-            pygame.draw.rect(screen, border_color, buttons["results"], border_width, border_radius=10)
+            # Exit button - bigger and centered
+            mouse = pygame.mouse.get_pos()
+            exit_btn = pygame.Rect(WIDTH // 2 - 120, panel.y + panel.height - 60, 240, 45)
+            c = (60, 60, 80) if exit_btn.collidepoint(mouse) else (40, 40, 50)
+            pygame.draw.rect(screen, c, exit_btn, border_radius=12)
+            
+            border_color = (255, 100, 100) if exit_btn.collidepoint(mouse) else (200, 200, 200)
+            border_width = 3 if exit_btn.collidepoint(mouse) else 2
+            pygame.draw.rect(screen, border_color, exit_btn, border_width, border_radius=12)
             
             exit_text = font.render("Exit", True, (220, 220, 220))
-            screen.blit(exit_text, (buttons["results"].x + buttons["results"].width // 2 - 30, buttons["results"].y + 13))
+            screen.blit(exit_text, (exit_btn.x + exit_btn.width // 2 - exit_text.get_width() // 2, exit_btn.y + 12))
             
             pygame.display.update()
             
@@ -568,7 +594,7 @@ def run_rhythm_game():
                 if e.type == pygame.QUIT:
                     return
                     
-                if e.type == pygame.MOUSEBUTTONDOWN and buttons["results"].collidepoint(e.pos):
+                if e.type == pygame.MOUSEBUTTONDOWN and exit_btn.collidepoint(e.pos):
                     return
                     
                 if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:

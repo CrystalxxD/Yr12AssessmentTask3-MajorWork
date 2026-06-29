@@ -91,18 +91,7 @@ def run_typeosarus():
     # MENU BUTTONS
     # -------------------------
     back_button = pygame.Rect(20, 20, 180, 45)
-    btn_w, btn_h, btn_spacing = 120, 60, 20
-    total_w = (btn_w * 5) + (btn_spacing * 4)
-    start_x = (WIDTH - total_w) // 2
-    start_y = 280
-    buttons = {
-        10: pygame.Rect(start_x, start_y, btn_w, btn_h),
-        15: pygame.Rect(start_x + btn_w + btn_spacing, start_y, btn_w, btn_h),
-        30: pygame.Rect(start_x + (btn_w + btn_spacing) * 2, start_y, btn_w, btn_h),
-        60: pygame.Rect(start_x + (btn_w + btn_spacing) * 3, start_y, btn_w, btn_h),
-        100: pygame.Rect(start_x + (btn_w + btn_spacing) * 4, start_y, btn_w, btn_h),
-    }
-    back_btn = pygame.Rect((WIDTH - 160) // 2, 620, 160, 50)
+    menu_buttons = {}
 
     # -------------------------
     # SCROLL FUNCTIONS
@@ -183,17 +172,34 @@ def run_typeosarus():
             pygame.draw.line(screen, (100, 120, 80), (cat_x + 10, cat_y + 25), (cat_x - 10, cat_y + 35), 4)
 
     # -------------------------
-    # DRAW MENU
+    # DRAW MENU - No panel box
     # -------------------------
     def draw_menu():
+        nonlocal menu_buttons
         draw_background()
         theme = themes[current_theme]
+        
+        # Title - directly on background
         title = FONT.render("Typeosarus", True, theme["correct"])
         screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 80))
         subtitle = SMALL.render("Select word count", True, theme["subtext"])
         screen.blit(subtitle, (WIDTH // 2 - subtitle.get_width() // 2, 180))
 
-        for n, rect in buttons.items():
+        # Word count buttons
+        btn_w, btn_h, btn_spacing = 120, 60, 25
+        total_w = (btn_w * 5) + (btn_spacing * 4)
+        start_x = (WIDTH - total_w) // 2
+        start_y = 250
+        
+        menu_buttons = {
+            10: pygame.Rect(start_x, start_y, btn_w, btn_h),
+            15: pygame.Rect(start_x + btn_w + btn_spacing, start_y, btn_w, btn_h),
+            30: pygame.Rect(start_x + (btn_w + btn_spacing) * 2, start_y, btn_w, btn_h),
+            60: pygame.Rect(start_x + (btn_w + btn_spacing) * 3, start_y, btn_w, btn_h),
+            100: pygame.Rect(start_x + (btn_w + btn_spacing) * 4, start_y, btn_w, btn_h),
+        }
+        
+        for n, rect in menu_buttons.items():
             pygame.draw.rect(screen, theme["button_bg"], rect, border_radius=8)
             pygame.draw.rect(screen, theme["correct"], rect, 2, border_radius=8)
             fs = 24
@@ -205,6 +211,7 @@ def run_typeosarus():
                 ts = tf.render(str(n), True, theme["correct"])
             screen.blit(ts, (rect.centerx - ts.get_width() // 2, rect.centery - ts.get_height() // 2))
 
+        # Back button
         pygame.draw.rect(screen, theme["button_bg"], back_button, border_radius=10)
         pygame.draw.rect(screen, theme["correct"], back_button, 2, border_radius=10)
         back_text = SMALLER.render("Back to Main Menu", True, theme["correct"])
@@ -289,50 +296,84 @@ def run_typeosarus():
     def draw_results():
         draw_background()
         theme = themes[current_theme]
+        
+        # Results panel
+        panel_width = 700
+        panel_height = 480
+        panel_x = (WIDTH - panel_width) // 2
+        panel_y = (HEIGHT - panel_height) // 2 - 30
+        
+        pygame.draw.rect(screen, theme["stats_bg"], (panel_x, panel_y, panel_width, panel_height), border_radius=25)
+        pygame.draw.rect(screen, theme["correct"], (panel_x, panel_y, panel_width, panel_height), 3, border_radius=25)
+        
+        # Title
         title = FONT.render("Test Complete!", True, theme["correct"])
-        screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 60))
-
-        by, bw, bh, sp = 160, 280, 130, 30
-        wpm_box = pygame.Rect(WIDTH // 2 - bw - sp // 2, by, bw, bh)
-        pygame.draw.rect(screen, theme["stats_bg"], wpm_box, border_radius=15)
-        pygame.draw.rect(screen, theme["correct"], wpm_box, 3, border_radius=15)
+        screen.blit(title, (WIDTH // 2 - title.get_width() // 2, panel_y + 30))
+        
+        # Stats grid - 2x3 layout
+        box_width = 200
+        box_height = 90
+        box_spacing = 30
+        start_x = WIDTH // 2 - box_width - box_spacing // 2
+        start_y = panel_y + 90
+        
+        # Row 1: WPM and Raw WPM
+        wpm_box = pygame.Rect(start_x, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), wpm_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], wpm_box, 2, border_radius=15)
         wpm_v = FONT.render(f"{int(wpm)}", True, theme["correct"])
-        screen.blit(wpm_v, (wpm_box.centerx - wpm_v.get_width() // 2, wpm_box.y + 35))
-        screen.blit(SMALL.render("wpm", True, theme["subtext"]), (wpm_box.centerx - 25, wpm_box.y + 85))
-
-        raw_box = pygame.Rect(WIDTH // 2 + sp // 2, by, bw, bh)
-        pygame.draw.rect(screen, theme["stats_bg"], raw_box, border_radius=15)
-        pygame.draw.rect(screen, theme["correct"], raw_box, 3, border_radius=15)
+        screen.blit(wpm_v, (wpm_box.centerx - wpm_v.get_width() // 2, wpm_box.y + 15))
+        wpm_label = SMALL.render("WPM", True, theme["subtext"])
+        screen.blit(wpm_label, (wpm_box.centerx - wpm_label.get_width() // 2, wpm_box.y + 60))
+        
+        raw_box = pygame.Rect(start_x + box_width + box_spacing, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), raw_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], raw_box, 2, border_radius=15)
         raw_v = FONT.render(f"{int(raw_wpm)}", True, theme["correct"])
-        screen.blit(raw_v, (raw_box.centerx - raw_v.get_width() // 2, raw_box.y + 35))
-        screen.blit(SMALL.render("raw wpm", True, theme["subtext"]), (raw_box.centerx - 35, raw_box.y + 85))
-
-        acc_box = pygame.Rect(WIDTH // 2 - bw // 2, by + bh + sp, bw, bh)
-        pygame.draw.rect(screen, theme["stats_bg"], acc_box, border_radius=15)
-        pygame.draw.rect(screen, theme["correct"], acc_box, 3, border_radius=15)
+        screen.blit(raw_v, (raw_box.centerx - raw_v.get_width() // 2, raw_box.y + 15))
+        raw_label = SMALL.render("RAW WPM", True, theme["subtext"])
+        screen.blit(raw_label, (raw_box.centerx - raw_label.get_width() // 2, raw_box.y + 60))
+        
+        # Row 2: Accuracy and Time
+        start_y = panel_y + 90 + box_height + box_spacing
+        acc_box = pygame.Rect(start_x, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), acc_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], acc_box, 2, border_radius=15)
         acc_v = FONT.render(f"{int(accuracy)}%", True, theme["correct"])
-        screen.blit(acc_v, (acc_box.centerx - acc_v.get_width() // 2, acc_box.y + 35))
-        screen.blit(SMALL.render("accuracy", True, theme["subtext"]), (acc_box.centerx - 35, acc_box.y + 85))
-
-        time_box = pygame.Rect(WIDTH // 2 - bw // 2, acc_box.y + bh + sp, bw, bh)
-        pygame.draw.rect(screen, theme["stats_bg"], time_box, border_radius=15)
-        pygame.draw.rect(screen, theme["correct"], time_box, 3, border_radius=15)
+        screen.blit(acc_v, (acc_box.centerx - acc_v.get_width() // 2, acc_box.y + 15))
+        acc_label = SMALL.render("ACCURACY", True, theme["subtext"])
+        screen.blit(acc_label, (acc_box.centerx - acc_label.get_width() // 2, acc_box.y + 60))
+        
         elapsed = end_time - start_time if start_time and end_time else 0
-        time_v = SMALL.render(f"{elapsed:.1f} seconds", True, theme["correct"])
-        screen.blit(time_v, (time_box.centerx - time_v.get_width() // 2, time_box.y + 35))
-        screen.blit(SMALL.render("time", True, theme["subtext"]), (time_box.centerx - 20, time_box.y + 85))
-
-        char_box = pygame.Rect(WIDTH // 2 - bw // 2, time_box.y + bh + sp, bw, bh)
-        pygame.draw.rect(screen, theme["stats_bg"], char_box, border_radius=15)
-        pygame.draw.rect(screen, theme["correct"], char_box, 3, border_radius=15)
+        time_box = pygame.Rect(start_x + box_width + box_spacing, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), time_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], time_box, 2, border_radius=15)
+        time_v = SMALL.render(f"{elapsed:.1f}s", True, theme["correct"])
+        screen.blit(time_v, (time_box.centerx - time_v.get_width() // 2, time_box.y + 15))
+        time_label = SMALL.render("TIME", True, theme["subtext"])
+        screen.blit(time_label, (time_box.centerx - time_label.get_width() // 2, time_box.y + 60))
+        
+        # Row 3: Characters and Completion
+        start_y = panel_y + 90 + (box_height + box_spacing) * 2
+        char_box = pygame.Rect(start_x, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), char_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], char_box, 2, border_radius=15)
         char_v = SMALL.render(f"{len(full_text)}", True, theme["correct"])
-        screen.blit(char_v, (char_box.centerx - char_v.get_width() // 2, char_box.y + 35))
-        screen.blit(SMALL.render("characters", True, theme["subtext"]), (char_box.centerx - 40, char_box.y + 85))
-
-        pygame.draw.rect(screen, theme["button_bg"], back_btn, border_radius=10)
-        pygame.draw.rect(screen, theme["correct"], back_btn, 3, border_radius=10)
-        txt = SMALL.render("New Test", True, theme["correct"])
-        screen.blit(txt, (back_btn.centerx - txt.get_width() // 2, back_btn.centery - txt.get_height() // 2))
+        screen.blit(char_v, (char_box.centerx - char_v.get_width() // 2, char_box.y + 15))
+        char_label = SMALL.render("CHARACTERS", True, theme["subtext"])
+        screen.blit(char_label, (char_box.centerx - char_label.get_width() // 2, char_box.y + 60))
+        
+        typed_chars = len(typed)
+        total_chars = len(full_text)
+        completion = (typed_chars / total_chars * 100) if total_chars > 0 else 0
+        comp_box = pygame.Rect(start_x + box_width + box_spacing, start_y, box_width, box_height)
+        pygame.draw.rect(screen, (248, 244, 235), comp_box, border_radius=15)
+        pygame.draw.rect(screen, theme["correct"], comp_box, 2, border_radius=15)
+        comp_v = SMALL.render(f"{completion:.0f}%", True, theme["correct"])
+        screen.blit(comp_v, (comp_box.centerx - comp_v.get_width() // 2, comp_box.y + 15))
+        comp_label = SMALL.render("COMPLETION", True, theme["subtext"])
+        screen.blit(comp_label, (comp_box.centerx - comp_label.get_width() // 2, comp_box.y + 60))
+        
         draw_cat()
 
     # -------------------------
@@ -350,14 +391,13 @@ def run_typeosarus():
             if state == "menu" and event.type == pygame.MOUSEBUTTONDOWN:
                 if back_button.collidepoint(event.pos):
                     return
-                for n, rect in buttons.items():
+                for n, rect in menu_buttons.items():
                     if rect.collidepoint(event.pos):
                         start_test(n)
 
             if state == "results" and event.type == pygame.MOUSEBUTTONDOWN:
-                if back_btn.collidepoint(event.pos):
-                    state = "menu"
-                    current_frame = 0
+                state = "menu"
+                current_frame = 0
 
             if state == "test" and event.type == pygame.KEYDOWN:
                 if start_time is None:

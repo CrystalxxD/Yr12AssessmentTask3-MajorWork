@@ -102,7 +102,7 @@ while running:
     draw_background()
     
     # Main panel - Centered
-    panel_width = 500
+    panel_width = 550
     panel_height = 500
     panel_x = (WIDTH - panel_width) // 2
     panel_y = (HEIGHT - panel_height) // 2 - 50

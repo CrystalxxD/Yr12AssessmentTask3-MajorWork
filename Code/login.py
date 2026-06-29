@@ -82,8 +82,8 @@ def check_login(username, password):
 # -------------------------
 # UI ELEMENTS - Centered
 # -------------------------
-panel_width = 500
-panel_height = 550
+panel_width = 720
+panel_height = 600
 panel_x = (WIDTH - panel_width) // 2
 panel_y = (HEIGHT - panel_height) // 2 - 50
 
