@@ -23,6 +23,8 @@ To run this program, you need to install the following dependencies:
 
 Pygame (used for gui display and particle affects)
 
+Cryptography (used to encrypt passwords in login system)
+
 Install dependencies
 ``` bash
 pip install -r requirements.txt
