@@ -10,23 +10,23 @@ pygame.init()
 # -------------------------
 # LOGIN FIRST
 # -------------------------
-run_login()
+run_login() # Run the login function to prompt the user for login or account creation before proceeding to the main menu
 
 # -------------------------
 # SCREEN
 # -------------------------
-WIDTH, HEIGHT = 1450, 800
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Typeosarus")
+WIDTH, HEIGHT = 1450, 800 # Set the window size to 1450x800 for a more spacious layout
+screen = pygame.display.set_mode((WIDTH, HEIGHT)) # Set the display mode to the specified width and height
+pygame.display.set_caption("Typeosarus") # Set the window caption to "Typeosarus"
 
-clock = pygame.time.Clock()
+clock = pygame.time.Clock() # Create a clock object to manage the frame rate of the game
 
 # -------------------------
 # FONTS
 # -------------------------
-title_font = pygame.font.SysFont("consolas", 72, bold=True)
-font = pygame.font.SysFont("consolas", 32)
-small_font = pygame.font.SysFont("consolas", 22)
+title_font = pygame.font.SysFont("consolas", 72, bold=True) # Set the title font to Consolas, size 72, bold
+font = pygame.font.SysFont("consolas", 32) # Set the main font to Consolas, size 32
+small_font = pygame.font.SysFont("consolas", 22) # Set the small font to Consolas, size 22
 
 # -------------------------
 # COLOURS - Cream Theme
@@ -43,23 +43,23 @@ BUTTON = (235, 228, 215)
 BUTTON_HOVER = (225, 218, 205)
 
 # -------------------------
-# BUTTONS - Centered with proper sizing
+# BUTTONS
 # -------------------------
-button_width = 350
-button_height = 80
-button_spacing = 25
+button_width = 350 # Set the width of each button to 350 pixels
+button_height = 80 # Set the height of each button to 80 pixels
+button_spacing = 25 # Set the spacing between buttons to 25 pixels
 
-total_height = button_height * 3 + button_spacing * 2
-start_y = (HEIGHT - total_height) // 2
+total_height = button_height * 3 + button_spacing * 2 # Calculate the total height of all buttons and spacing
+start_y = (HEIGHT - total_height) // 2 # Calculate the starting y-coordinate to center the buttons vertically
 
-type_button = pygame.Rect((WIDTH - button_width) // 2, start_y, button_width, button_height)
-rhythm_button = pygame.Rect((WIDTH - button_width) // 2, start_y + button_height + button_spacing, button_width, button_height)
-exit_button = pygame.Rect((WIDTH - button_width) // 2, start_y + (button_height + button_spacing) * 2, button_width, button_height)
+type_button = pygame.Rect((WIDTH - button_width) // 2, start_y, button_width, button_height) # Create a rectangle for the "Typeosarus" button, centered horizontally and positioned at start_y
+rhythm_button = pygame.Rect((WIDTH - button_width) // 2, start_y + button_height + button_spacing, button_width, button_height) # Create a rectangle for the "Rhythm Game" button, centered horizontally and positioned below the first button with spacing
+exit_button = pygame.Rect((WIDTH - button_width) // 2, start_y + (button_height + button_spacing) * 2, button_width, button_height) # Create a rectangle for the "Exit" button, centered horizontally and positioned below the second button with spacing
 
 # -------------------------
 # BACKGROUND
 # -------------------------
-def draw_background():
+def draw_background(): # Draw a vertical gradient background from BG_TOP to BG_BOTTOM
     for y in range(HEIGHT):
         ratio = y / HEIGHT
         r = int(BG_TOP[0] * (1-ratio) + BG_BOTTOM[0] * ratio)
@@ -68,9 +68,9 @@ def draw_background():
         pygame.draw.line(screen, (r, g, b), (0, y), (WIDTH, y))
 
 # -------------------------
-# BUTTON DRAW - Fixed text fitting
+# BUTTON DRAW
 # -------------------------
-def draw_button(rect, text, icon=""):
+def draw_button(rect, text, icon=""): # Draw a button with the specified rectangle, text, and optional icon
     mouse = pygame.mouse.get_pos()
     colour = BUTTON_HOVER if rect.collidepoint(mouse) else BUTTON
     
@@ -97,10 +97,10 @@ def draw_button(rect, text, icon=""):
 # -------------------------
 running = True
 
-while running:
-    clock.tick(60)
-    draw_background()
-    
+while running: # Main loop to keep the program running until the user exits
+    clock.tick(60) # Limit the frame rate to 60 frames per second
+    draw_background() # Draw the gradient background on each frame
+
     # Main panel - Centered
     panel_width = 550
     panel_height = 500
@@ -134,17 +134,17 @@ while running:
             running = False
         
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if type_button.collidepoint(event.pos):
+            if type_button.collidepoint(event.pos): # If the user clicks on the "Typeosarus" button, run the Typeosarus game function and reset the screen and background after returning from the game
                 run_typeosarus()
-                screen = pygame.display.set_mode((WIDTH, HEIGHT))
+                screen = pygame.display.set_mode((WIDTH, HEIGHT)) 
                 draw_background()
                 
-            elif rhythm_button.collidepoint(event.pos):
+            elif rhythm_button.collidepoint(event.pos): # If the user clicks on the "Rhythm Game" button, run the Rhythm Game function and reset the screen and background after returning from the game
                 run_rhythm_game()
                 screen = pygame.display.set_mode((WIDTH, HEIGHT))
                 draw_background()
                 
-            elif exit_button.collidepoint(event.pos):
+            elif exit_button.collidepoint(event.pos): # If the user clicks on the "Exit" button, set running to False to exit the main loop and close the program
                 running = False
 
 pygame.quit()
